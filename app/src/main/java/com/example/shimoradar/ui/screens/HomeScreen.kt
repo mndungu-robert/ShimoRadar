@@ -133,7 +133,7 @@ private fun HomeHeader() {
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text("Hi, Robert", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Navy)
-            Text("Ruiru · 3 reports near you today", fontSize = 13.sp, color = Muted)
+            Text("Ruiru · ${MockData.reports.size} reports near you today", fontSize = 13.sp, color = Muted)
         }
         IconButton(
             onClick = { },

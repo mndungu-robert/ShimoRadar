@@ -59,6 +59,10 @@ import com.example.shimoradar.ui.theme.CardWhite
 import com.example.shimoradar.ui.theme.Coral
 import com.example.shimoradar.ui.theme.Muted
 import com.example.shimoradar.ui.theme.Navy
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import com.example.shimoradar.ui.util.loadPhoto
 
 private val StepGrey = Color(0xFFCBD5E1)
 
@@ -150,6 +154,21 @@ fun ReportDetailScreen(
         Text(report.type, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Navy)
         Spacer(Modifier.height(8.dp))
         StatusChip(report.status)
+        report.photoPath?.let { path ->
+            val photo = remember(path) { loadPhoto(path) }
+            if (photo != null) {
+                Spacer(Modifier.height(16.dp))
+                Image(
+                    bitmap = photo,
+                    contentDescription = "Photo of the damage",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                )
+            }
+        }
 
         Spacer(Modifier.height(24.dp))
         Surface(
@@ -165,6 +184,8 @@ fun ReportDetailScreen(
                 InfoRow("Location", report.location)
                 InfoRow("Reported", report.whenText)
                 InfoRow("Distance from you", report.distance)
+                InfoRow("Severity", report.severity)
+                if (report.description.isNotBlank()) InfoRow("Notes", report.description)
             }
         }
 

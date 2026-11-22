@@ -28,7 +28,9 @@ import com.example.shimoradar.ui.components.FloatingNavBar
 import com.example.shimoradar.ui.screens.HomeScreen
 import com.example.shimoradar.ui.screens.ProfileScreen
 import com.example.shimoradar.ui.screens.ReportDetailScreen
+import com.example.shimoradar.ui.screens.ReportFormScreen
 import com.example.shimoradar.ui.screens.ReportsScreen
+import com.example.shimoradar.ui.screens.ScanScreen
 import com.example.shimoradar.ui.theme.Muted
 import com.example.shimoradar.ui.theme.Navy
 
@@ -39,8 +41,10 @@ object Routes {
     const val MAP = "map"
     const val PROFILE = "profile"
     const val REPORT_DETAIL = "report/{id}"
+    const val FORM = "form/{photo}"
 
     fun reportDetail(id: Int) = "report/$id"
+    fun form(photoName: String) = "form/$photoName"
 }
 
 private val tabRoutes = listOf(Routes.HOME, Routes.REPORTS, Routes.MAP, Routes.PROFILE)
@@ -75,7 +79,9 @@ fun SmartRoadApp() {
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = Modifier.padding(top = innerPadding.calculateTopPadding())
+            modifier = Modifier.padding(
+                top = if (currentRoute == Routes.SCAN) 0.dp else innerPadding.calculateTopPadding()
+            )
         ) {
             composable(Routes.HOME) {
                 HomeScreen(
@@ -99,7 +105,20 @@ fun SmartRoadApp() {
             composable(Routes.MAP) { PlaceholderScreen("Map", "Built in Phase 4") }
             composable(Routes.PROFILE) { ProfileScreen() }
             composable(Routes.SCAN) {
-                PlaceholderScreen("Scan road", "Camera comes in Phase 3") { navController.popBackStack() }
+                ScanScreen(
+                    onBack = { navController.popBackStack() },
+                    onCaptured = { photoName -> navController.navigate(Routes.form(photoName)) }
+                )
+            }
+            composable(
+                route = Routes.FORM,
+                arguments = listOf(navArgument("photo") { type = NavType.StringType })
+            ) { entry ->
+                ReportFormScreen(
+                    photoName = entry.arguments?.getString("photo") ?: "",
+                    onBack = { navController.popBackStack() },
+                    onSubmitted = { navController.goToTab(Routes.REPORTS) }
+                )
             }
         }
     }
