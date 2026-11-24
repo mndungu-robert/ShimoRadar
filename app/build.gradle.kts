@@ -37,6 +37,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.tensorflow.lite)
     implementation(libs.osmdroid.android)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

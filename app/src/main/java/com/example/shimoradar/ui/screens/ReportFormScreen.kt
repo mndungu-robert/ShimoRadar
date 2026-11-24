@@ -5,8 +5,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.shimoradar.data.DamageTypes
+import com.example.shimoradar.data.Detection
 import com.example.shimoradar.data.Detector
 import com.example.shimoradar.data.MockData
 import com.example.shimoradar.data.ReportDraft
@@ -54,12 +55,15 @@ import com.example.shimoradar.data.ReportStatus
 import com.example.shimoradar.data.RoadReport
 import com.example.shimoradar.data.SeverityLevels
 import com.example.shimoradar.ui.components.ChoiceRow
+import com.example.shimoradar.ui.components.DetectionOverlay
 import com.example.shimoradar.ui.theme.CardWhite
 import com.example.shimoradar.ui.theme.Coral
 import com.example.shimoradar.ui.theme.CoralDark
+import com.example.shimoradar.ui.theme.CoralTint
 import com.example.shimoradar.ui.theme.Muted
 import com.example.shimoradar.ui.theme.Navy
 import com.example.shimoradar.ui.util.loadPhoto
+import kotlinx.coroutines.delay
 import java.io.File
 
 @Composable
@@ -76,11 +80,24 @@ fun ReportFormScreen(
     var type by remember { mutableStateOf(DamageTypes.first()) }
     var severity by remember { mutableStateOf(ReportDraft.severity) }
     var notes by remember { mutableStateOf("") }
+    var detection by remember { mutableStateOf<Detection?>(null) }
+    var analysing by remember { mutableStateOf(true) }
+    var aiReady by remember { mutableStateOf(true) }
     val locationText = ReportDraft.locationText()
 
-    // AI hook: once a real detector is plugged in, it pre-selects the damage type here.
+    // Run the AI model on the photo. The model loads in the background at app start,
+    // so wait up to 5 seconds for it if the user was very quick.
     LaunchedEffect(photoPath) {
-        Detector.current.detect(photoPath)?.let { type = it.type }
+        var waited = 0
+        while (Detector.yolo == null && waited < 5000) {
+            delay(250)
+            waited += 250
+        }
+        aiReady = Detector.yolo != null
+        val result = Detector.current.detect(photoPath)
+        detection = result
+        analysing = false
+        if (result != null) type = result.type
     }
 
     Column(
@@ -108,15 +125,27 @@ fun ReportFormScreen(
 
         Spacer(Modifier.height(20.dp))
         if (photo != null) {
-            Image(
-                bitmap = photo,
-                contentDescription = "Photo of the damage",
-                contentScale = ContentScale.Crop,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(210.dp)
                     .clip(RoundedCornerShape(22.dp))
-            )
+            ) {
+                Image(
+                    bitmap = photo,
+                    contentDescription = "Photo of the damage",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                detection?.let {
+                    DetectionOverlay(
+                        boxes = it.boxes,
+                        imageWidth = photo.width,
+                        imageHeight = photo.height,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
         } else {
             Box(
                 modifier = Modifier
@@ -126,6 +155,9 @@ fun ReportFormScreen(
                 contentAlignment = Alignment.Center
             ) { Text("Photo unavailable", color = Muted) }
         }
+
+        Spacer(Modifier.height(12.dp))
+        AiResultCard(analysing = analysing, aiReady = aiReady, detection = detection)
 
         Spacer(Modifier.height(20.dp))
         FieldLabel("What is it?")
@@ -185,7 +217,8 @@ fun ReportFormScreen(
                     description = notes.trim(),
                     photoPath = photoPath,
                     latitude = ReportDraft.latitude,
-                    longitude = ReportDraft.longitude
+                    longitude = ReportDraft.longitude,
+                    aiLabel = detection?.let { "${it.label} · ${(it.confidence * 100).toInt()}%" }
                 )
                 MockData.reports.add(0, report)
                 ReportDraft.clear()
@@ -201,6 +234,40 @@ fun ReportFormScreen(
             Text("Submit report", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
         }
         Spacer(Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun AiResultCard(analysing: Boolean, aiReady: Boolean, detection: Detection?) {
+    val title: String
+    val subtitle: String
+    when {
+        analysing -> {
+            title = "Analysing photo…"
+            subtitle = "The AI model is checking the road surface"
+        }
+        !aiReady -> {
+            title = "AI model not available"
+            subtitle = "Check that best.tflite is in app/src/main/assets. You can still report manually."
+        }
+        detection == null -> {
+            title = "No damage detected"
+            subtitle = "You can still submit this report manually"
+        }
+        else -> {
+            title = "AI detected: ${detection.label}"
+            subtitle = "${(detection.confidence * 100).toInt()}% confident. Type pre-selected; change it if it's wrong."
+        }
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = CoralTint
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Navy)
+            Text(subtitle, fontSize = 13.sp, color = Muted, modifier = Modifier.padding(top = 2.dp))
+        }
     }
 }
 

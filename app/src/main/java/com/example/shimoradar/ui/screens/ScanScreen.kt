@@ -84,7 +84,7 @@ import com.example.shimoradar.ui.theme.Muted
 import com.example.shimoradar.ui.theme.Navy
 import com.example.shimoradar.ui.theme.RedFg
 import java.io.File
-
+import com.example.shimoradar.ui.components.DetectingCameraPreview
 private const val TAG = "ShimoRadar"
 
 @Composable
@@ -197,7 +197,7 @@ fun ScanScreen(
             contentAlignment = Alignment.Center
         ) {
             if (hasCamera) {
-                CameraPreview(
+                DetectingCameraPreview(
                     imageCapture = imageCapture,
                     onCameraReady = { camera = it },
                     modifier = Modifier.fillMaxSize()

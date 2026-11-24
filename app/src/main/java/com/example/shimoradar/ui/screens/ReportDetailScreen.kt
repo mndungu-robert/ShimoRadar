@@ -187,7 +187,13 @@ fun ReportDetailScreen(
                 InfoRow("Reported", report.whenText)
                 InfoRow("Distance from you", report.distance)
                 InfoRow("Severity", report.severity)
-                if (report.description.isNotBlank()) InfoRow("Notes", report.description)
+                if (report.description.isNotBlank()) {
+                    InfoRow("Notes", report.description)
+                }
+
+                report.aiLabel?.let {
+                    InfoRow("AI detection", it)
+                }
             }
         }
 

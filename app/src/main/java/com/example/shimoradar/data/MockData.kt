@@ -22,7 +22,8 @@ data class RoadReport(
     val description: String = "",
     val photoPath: String? = null,
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    val aiLabel: String? = null
 )
 
 object MockData {
