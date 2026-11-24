@@ -1,8 +1,11 @@
-package com.example.shimoradar.data
+﻿package com.example.shimoradar.data
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Matrix
 import android.graphics.RectF
 import android.media.ExifInterface
@@ -72,6 +75,18 @@ class YoloDetector(context: Context) : DamageDetector {
             model.rewind()
             interpreter = Interpreter(model, Interpreter.Options().apply { setNumThreads(4) })
             Log.d(TAG, "AI model loaded")
+
+interpreter?.let { engine ->
+    for (i in 0 until engine.inputTensorCount) {
+        val tensor = engine.getInputTensor(i)
+        Log.d(TAG, "INPUT $i: shape=${tensor.shape().contentToString()}, type=${tensor.dataType()}")
+    }
+
+    for (i in 0 until engine.outputTensorCount) {
+        val tensor = engine.getOutputTensor(i)
+        Log.d(TAG, "OUTPUT $i: shape=${tensor.shape().contentToString()}, type=${tensor.dataType()}")
+    }
+}
         } catch (e: Exception) {
             Log.e(TAG, "Could not load $MODEL_FILE. Is it in app/src/main/assets?", e)
         }
@@ -86,9 +101,36 @@ class YoloDetector(context: Context) : DamageDetector {
     ): List<DetectedBox> {
         val tflite = interpreter ?: return emptyList()
         return try {
-            val scaled = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
-            scaled.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
-            if (scaled !== bitmap) scaled.recycle()
+            val scale = min(
+                inputSize.toFloat() / bitmap.width,
+                inputSize.toFloat() / bitmap.height
+            )
+
+            val resizedWidth = bitmap.width * scale
+            val resizedHeight = bitmap.height * scale
+
+            val padX = (inputSize - resizedWidth) / 2f
+            val padY = (inputSize - resizedHeight) / 2f
+
+            val letterboxed = Bitmap.createBitmap(
+                inputSize, inputSize, Bitmap.Config.ARGB_8888
+            )
+
+            val canvas = Canvas(letterboxed)
+            canvas.drawColor(Color.rgb(114, 114, 114))
+
+            canvas.drawBitmap(
+                bitmap,
+                null,
+                RectF(padX, padY, padX + resizedWidth, padY + resizedHeight),
+                Paint(Paint.FILTER_BITMAP_FLAG)
+            )
+
+            letterboxed.getPixels(
+                pixels, 0, inputSize, 0, 0, inputSize, inputSize
+            )
+
+            letterboxed.recycle()
 
             // Channels first: all red values, then all green, then all blue.
             val area = inputSize * inputSize
@@ -97,8 +139,40 @@ class YoloDetector(context: Context) : DamageDetector {
             for (i in 0 until area) floats.put(area + i, ((pixels[i] shr 8) and 0xFF) / 255f)
             for (i in 0 until area) floats.put(2 * area + i, (pixels[i] and 0xFF) / 255f)
 
-            tflite.run(inputBuffer, output)
-            decode(output[0], confidence, iouThreshold).take(5)
+            inputBuffer.rewind()
+
+val start = System.currentTimeMillis()
+
+tflite.run(inputBuffer, output)
+
+Log.d(TAG, "Inference time: ${System.currentTimeMillis() - start}ms")
+
+for (c in 0 until numClasses) {
+    val scores = output[0][4 + c]
+    Log.d(TAG, "Class $c (${ClassInfo.label(c)}): max score=${scores.maxOrNull()}")
+}
+
+for (c in 0 until 4) {
+    Log.d(TAG, "Coordinate $c: min=${output[0][c].minOrNull()}, max=${output[0][c].maxOrNull()}")
+}
+            decode(output[0], confidence, iouThreshold)
+                .mapNotNull { box ->
+                    val rect = box.rect
+
+                    val corrected = RectF(
+                        ((rect.left * inputSize - padX) / resizedWidth).coerceIn(0f, 1f),
+                        ((rect.top * inputSize - padY) / resizedHeight).coerceIn(0f, 1f),
+                        ((rect.right * inputSize - padX) / resizedWidth).coerceIn(0f, 1f),
+                        ((rect.bottom * inputSize - padY) / resizedHeight).coerceIn(0f, 1f)
+                    )
+
+                    if (corrected.width() > 0f && corrected.height() > 0f) {
+                        box.copy(rect = corrected)
+                    } else {
+                        null
+                    }
+                }
+                .take(5)
         } catch (e: Exception) {
             Log.e(TAG, "Inference failed", e)
             emptyList()
@@ -168,7 +242,7 @@ class YoloDetector(context: Context) : DamageDetector {
     }
 
     private fun decodeUpright(path: String): Bitmap? {
-        val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+        val options = BitmapFactory.Options().apply { inSampleSize = 1 }
         val bitmap = BitmapFactory.decodeFile(path, options) ?: return null
         val rotation = when (
             ExifInterface(path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
@@ -185,3 +259,7 @@ class YoloDetector(context: Context) : DamageDetector {
         )
     }
 }
+
+
+
+
