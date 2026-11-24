@@ -26,14 +26,31 @@ data class RoadReport(
 )
 
 object MockData {
-    // A state list: screens that read it update automatically when a report is added.
+    // Sample coordinates around Ruiru. Replace them with real ones whenever you like.
     val reports = mutableStateListOf(
-        RoadReport(1, "Pothole", "Eastern Bypass, Ruiru Junction", ReportStatus.REPORTED, "0.4 km", "Today, 09:12", R.drawable.ic_pothole),
-        RoadReport(2, "Alligator crack", "Lang'ata Rd, near T-Mall", ReportStatus.UNDER_REPAIR, "1.2 km", "Yesterday", R.drawable.ic_crack),
-        RoadReport(3, "Longitudinal crack", "Madaraka Est, Ole Sangale Rd", ReportStatus.REPAIRED, "2.8 km", "12 Nov", R.drawable.ic_crack)
+        RoadReport(
+            1, "Pothole", "Eastern Bypass, Ruiru Junction", ReportStatus.REPORTED,
+            "0.4 km", "Today, 09:12", R.drawable.ic_pothole,
+            severity = "High", latitude = -1.1458, longitude = 36.9631
+        ),
+        RoadReport(
+            2, "Alligator crack", "Lang'ata Rd, near T-Mall", ReportStatus.UNDER_REPAIR,
+            "1.2 km", "Yesterday", R.drawable.ic_crack,
+            severity = "Medium", latitude = -1.1521, longitude = 36.9547
+        ),
+        RoadReport(
+            3, "Longitudinal crack", "Madaraka Est, Ole Sangale Rd", ReportStatus.REPAIRED,
+            "2.8 km", "12 Nov", R.drawable.ic_crack,
+            severity = "Low", latitude = -1.1389, longitude = 36.9702
+        )
     )
 
     fun nextId(): Int = (reports.maxOfOrNull { it.id } ?: 0) + 1
+
+    fun updateStatus(id: Int, status: ReportStatus) {
+        val index = reports.indexOfFirst { it.id == id }
+        if (index >= 0) reports[index] = reports[index].copy(status = status)
+    }
 
     @DrawableRes
     fun iconFor(type: String): Int = when (type) {

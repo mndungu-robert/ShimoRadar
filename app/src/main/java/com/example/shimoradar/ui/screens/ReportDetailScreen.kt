@@ -34,6 +34,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import com.example.shimoradar.ui.components.ChoiceRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,7 +71,8 @@ private val StepGrey = Color(0xFFCBD5E1)
 fun ReportDetailScreen(
     reportId: Int,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isAdmin: Boolean = false,
 ) {
     val report = MockData.reports.firstOrNull { it.id == reportId }
     if (report == null) {
@@ -190,6 +192,32 @@ fun ReportDetailScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+        if (isAdmin) {
+            Text("Update status", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Navy)
+            Spacer(Modifier.height(12.dp))
+            ChoiceRow(
+                options = ReportStatus.values().map { it.label },
+                selected = report.status.label,
+                onSelect = { label ->
+                    ReportStatus.values().firstOrNull { it.label == label }
+                        ?.let { MockData.updateStatus(report.id, it) }
+                }
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+        if (isAdmin) {
+            Text("Update status", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Navy)
+            Spacer(Modifier.height(12.dp))
+            ChoiceRow(
+                options = ReportStatus.values().map { it.label },
+                selected = report.status.label,
+                onSelect = { label ->
+                    ReportStatus.values().firstOrNull { it.label == label }
+                        ?.let { MockData.updateStatus(report.id, it) }
+                }
+            )
+            Spacer(Modifier.height(24.dp))
+        }
         Text("Progress", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Navy)
         Spacer(Modifier.height(12.dp))
         Surface(
