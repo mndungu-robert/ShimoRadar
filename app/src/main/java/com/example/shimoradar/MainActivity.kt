@@ -1,4 +1,6 @@
-package com.example.shimoradar
+﻿package com.example.shimoradar
+
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 import android.graphics.Color
 import android.os.Bundle
@@ -16,6 +18,7 @@ import kotlinx.coroutines.withContext
 import android.util.Log
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         // Load the AI model in the background
         lifecycleScope.launch {
@@ -41,7 +44,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             ShimoradarTheme {
-                SmartRoadApp()
+                AppRoot()
             }
         }
     }
