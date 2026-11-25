@@ -34,6 +34,21 @@ android {
     buildFeatures {
         compose = true
     }
+
+    androidResources {
+        noCompress += "tflite"
+    }
+
+    packaging {
+        resources {
+            pickFirsts += "**/libtensorflowlite_jni.so"
+            pickFirsts += "**/libtensorflowlite_flex.so"
+        }
+        jniLibs {
+            pickFirsts += "**/libtensorflowlite_jni.so"
+            pickFirsts += "**/libtensorflowlite_flex.so"
+        }
+    }
 }
 
 dependencies {

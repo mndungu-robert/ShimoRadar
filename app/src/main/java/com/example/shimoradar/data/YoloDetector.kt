@@ -17,6 +17,8 @@ import kotlin.math.min
 
 private const val TAG = "ShimoRadar"
 private const val MODEL_FILE = "best.tflite"
+private const val PHOTO_LONG_SIDE = 600     // photos are shrunk so their long side is about this many pixels
+private const val PHOTO_CONFIDENCE = 0.20f  // minimum confidence for saved photos
 
 /** One box found by the model. [rect] holds fractions (0..1) of the image width and height. */
 data class DetectedBox(
@@ -98,6 +100,13 @@ class YoloDetector(context: Context) : DamageDetector {
             for (i in 0 until area) floats.put(2 * area + i, (pixels[i] and 0xFF) / 255f)
 
             tflite.run(inputBuffer, output)
+            var topScore = 0f
+            for (c in 0 until numClasses) {
+                for (i in 0 until numBoxes) {
+                    if (output[0][4 + c][i] > topScore) topScore = output[0][4 + c][i]
+                }
+            }
+            Log.d(TAG, "Highest class score in this image: ${"%.2f".format(topScore)}")
             decode(output[0], confidence, iouThreshold).take(5)
         } catch (e: Exception) {
             Log.e(TAG, "Inference failed", e)
@@ -107,7 +116,7 @@ class YoloDetector(context: Context) : DamageDetector {
 
     override suspend fun detect(photoPath: String): Detection? = withContext(Dispatchers.Default) {
         val bitmap = decodeUpright(photoPath) ?: return@withContext null
-        val boxes = detectBoxes(bitmap)
+        val boxes = detectBoxes(bitmap, confidence = PHOTO_CONFIDENCE)
         val top = boxes.firstOrNull() ?: return@withContext null
         Detection(
             type = ClassInfo.appType(top.classId),
@@ -168,8 +177,30 @@ class YoloDetector(context: Context) : DamageDetector {
     }
 
     private fun decodeUpright(path: String): Bitmap? {
-        val options = BitmapFactory.Options().apply { inSampleSize = 4 }
-        val bitmap = BitmapFactory.decodeFile(path, options) ?: return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        val longSide = max(bounds.outWidth, bounds.outHeight)
+        if (longSide <= 0) return null
+
+        // Decode at a power-of-two size that is still at least PHOTO_LONG_SIDE, then scale to it.
+        var sample = 1
+        while (longSide / (sample * 2) >= PHOTO_LONG_SIDE) sample *= 2
+        val decoded = BitmapFactory.decodeFile(
+            path, BitmapFactory.Options().apply { inSampleSize = sample }
+        ) ?: return null
+
+        val scale = PHOTO_LONG_SIDE.toFloat() / max(decoded.width, decoded.height)
+        val resized = if (scale < 1f) {
+            Bitmap.createScaledBitmap(
+                decoded,
+                (decoded.width * scale).toInt().coerceAtLeast(1),
+                (decoded.height * scale).toInt().coerceAtLeast(1),
+                true
+            )
+        } else {
+            decoded
+        }
+
         val rotation = when (
             ExifInterface(path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
         ) {
@@ -178,9 +209,9 @@ class YoloDetector(context: Context) : DamageDetector {
             ExifInterface.ORIENTATION_ROTATE_270 -> 270f
             else -> 0f
         }
-        if (rotation == 0f) return bitmap
+        if (rotation == 0f) return resized
         return Bitmap.createBitmap(
-            bitmap, 0, 0, bitmap.width, bitmap.height,
+            resized, 0, 0, resized.width, resized.height,
             Matrix().apply { postRotate(rotation) }, true
         )
     }
